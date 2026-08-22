@@ -1,0 +1,120 @@
+
+ide-mémoire Git
+Les commandes essentielles pour suivre, versionner et partager du code — expliquées simplement, pour un premier usage de Git.
+
+Configuration
+Démarrer
+Suivre
+Historique
+Branches
+Dépôt distant
+Annuler
+Workflow type
+01
+Configuration initiale
+À faire une seule fois, sur chaque machine, avant ton premier commit.
+
+git config --global user.name "Ton Nom"
+Associe ton nom à tous les commits que tu créeras.
+
+git config --global user.email "toi@exemple.com"
+Associe ton adresse e-mail — utilisée pour t'identifier sur GitHub et ailleurs.
+
+02
+Démarrer un projet
+Deux façons de commencer : créer un dépôt vide, ou en copier un qui existe déjà.
+
+git init
+Transforme le dossier courant en dépôt Git tout neuf, vide.
+
+git clone <url>
+Copie un dépôt existant (GitHub, GitLab…) sur ta machine, avec tout son historique.
+
+03
+Suivre les changements
+Le cycle que tu répètes en boucle : regarder, ajouter, enregistrer.
+
+git status
+Montre ce qui a changé : fichiers modifiés, nouveaux, ou déjà prêts à être enregistrés.
+
+git add <fichier>
+git add .
+Met un fichier — ou tous les fichiers modifiés — dans la zone de staging, l'antichambre du commit.
+
+git commit -m "message"
+Enregistre ce qui est en staging comme un point dans l'historique, avec une description.
+
+git diff
+git diff --staged
+Affiche le détail des changements — diff pour ce qui n'est pas encore ajouté, --staged pour ce qui l'est.
+
+04
+Consulter l'historique
+git log
+git log --oneline
+Liste les commits, du plus récent au plus ancien. La version --oneline tient sur une ligne par commit.
+
+05
+Branches
+Une branche est une ligne de développement indépendante — utile pour tester une idée sans toucher au code principal.
+
+git branch
+Liste les branches locales et indique celle sur laquelle tu te trouves.
+
+git branch <nom>
+Crée une nouvelle branche, sans y basculer.
+
+git switch <nom>
+git checkout -b <nom>
+switch bascule sur une branche existante ; checkout -b en crée une et bascule dessus en une fois.
+
+git merge <branche>
+Fusionne la branche indiquée dans celle où tu te trouves actuellement.
+
+06
+Travailler avec un dépôt distant
+Le "distant" (remote) est la copie du dépôt hébergée ailleurs — souvent sur GitHub.
+
+git remote -v
+Liste les dépôts distants connectés à ton projet.
+
+git push
+Envoie tes commits locaux vers le dépôt distant.
+
+git pull
+Récupère les changements distants et les fusionne dans ta branche locale.
+
+git fetch
+Récupère les changements distants sans les fusionner — pour regarder avant d'agir.
+
+07
+Annuler des changements
+À utiliser avec un peu plus de prudence — surtout sur du code déjà partagé.
+
+git restore <fichier>
+Annule les modifications non stagées d'un fichier — retour à la dernière version enregistrée.
+
+git reset <fichier>
+Retire un fichier de la zone de staging, sans toucher à son contenu.
+
+git revert <commit>
+Crée un nouveau commit qui annule un commit précédent — sûr même sur un historique déjà partagé.
+
+08
+Workflow type
+La séquence la plus courante, du premier commit à l'envoi sur GitHub.
+
+Initialiser le dépôt
+git init
+Vérifier ce qui a changé
+git status
+Mettre les fichiers en staging
+git add .
+Enregistrer le commit
+git commit -m "premier commit"
+Répète les étapes 2 à 4 à chaque nouvelle étape de travail.
+
+Créer une branche pour une nouvelle fonctionnalité
+git checkout -b ma-fonctionnalite
+Envoyer vers GitHub
+git push
