@@ -1,6 +1,5 @@
 Aide-mémoire Git
 Les commandes essentielles pour suivre, versionner et partager du code — expliquées simplement, pour un premier usage de Git.
-
 Configuration
 Démarrer
 Suivre
