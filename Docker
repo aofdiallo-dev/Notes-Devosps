@@ -648,6 +648,691 @@ Exemple :
 
 
 
+🐳 Docker — Cours 2
+docker run en profondeur : ports, noms, mode détaché, variables et commandes dans un container
+
+Dans le cours 1, tu as appris la différence entre image et container.
+
+Aujourd'hui, on va comprendre une commande essentielle de Docker :
+
+docker run
+
+À la fin du cours, tu sauras lancer un serveur Nginx, accéder à sa page depuis ton navigateur et comprendre exactement ce que fait chaque option.
+
+1. Rappel : que fait docker run ?
+
+Quand tu écris :
+
+docker run nginx
+
+Docker effectue essentiellement ceci :
+
+Image nginx
+    │
+    ▼
+Création du container
+    │
+    ▼
+Démarrage du container
+    │
+    ▼
+Processus Nginx
+
+Donc :
+
+docker run IMAGE
+
+signifie :
+
+Créer un nouveau container à partir d'une image et le démarrer.
+
+2. docker run -d
+
+Essayons :
+
+docker run -d nginx
+
+Le -d signifie :
+
+-d = detached
+
+Autrement dit :
+
+Exécuter le container en arrière-plan.
+
+Sans -d :
+
+docker run nginx
+
+ton terminal reste attaché au processus.
+
+Avec :
+
+docker run -d nginx
+
+Docker te rend immédiatement le terminal.
+
+Tu peux alors faire :
+
+docker ps
+
+Tu devrais voir ton Nginx.
+
+3. Donner un nom au container
+
+Par défaut, Docker peut générer un nom aléatoire :
+
+happy_turing
+interesting_morse
+focused_babbage
+
+Ce n'est pas très pratique.
+
+On peut choisir le nom :
+
+docker run -d --name mon-nginx nginx
+
+La structure est :
+
+docker run
+    │
+    ├── -d
+    │    └── arrière-plan
+    │
+    ├── --name mon-nginx
+    │    └── nom du container
+    │
+    └── nginx
+         └── image
+
+Maintenant :
+
+docker ps
+
+devrait afficher :
+
+mon-nginx
+4. Pourquoi --name est important ?
+
+Compare :
+
+docker stop interesting_morse
+
+avec :
+
+docker stop mon-nginx
+
+Le deuxième est beaucoup plus facile à retenir.
+
+Dans un vrai projet DevOps, tu peux avoir :
+
+nginx
+backend
+frontend
+postgres
+redis
+
+Donc nommer correctement tes containers devient très utile.
+
+5. Le problème des ports 🔌
+
+Maintenant nous avons Nginx qui tourne :
+
+docker ps
+
+Mais essayons d'accéder à :
+
+http://localhost
+
+Il est possible que tu n'obtiennes pas la page Nginx.
+
+Pourquoi ?
+
+Parce que le port du container n'est pas automatiquement publié sur le port de ta machine.
+
+C'est une notion extrêmement importante.
+
+6. Port du container vs port de l'hôte
+
+Imagine :
+
+Ubuntu
+┌─────────────────────────────────┐
+│                                 │
+│      Port 8080                  │
+│          │                      │
+│          ▼                      │
+│    ┌──────────────┐             │
+│    │    Docker    │             │
+│    │              │             │
+│    │ ┌──────────┐ │             │
+│    │ │  Nginx   │ │             │
+│    │ │ Port 80   │ │             │
+│    │ └──────────┘ │             │
+│    └──────────────┘             │
+│                                 │
+└─────────────────────────────────┘
+
+Nginx écoute généralement sur :
+
+port 80
+
+à l'intérieur du container.
+
+Mais ton Ubuntu doit savoir :
+
+« Lorsque quelqu'un arrive sur le port 8080 de ma machine, envoie-le vers le port 80 du container. »
+
+C'est exactement le rôle de :
+
+-p
+7. -p : publier un port
+
+Arrête et supprime ton ancien container :
+
+docker stop mon-nginx
+
+Puis :
+
+docker rm mon-nginx
+
+Lance maintenant :
+
+docker run -d --name mon-nginx -p 8080:80 nginx
+
+Regarde attentivement :
+
+-p 8080:80
+   │     │
+   │     └── port du container
+   │
+   └──────── port de l'hôte
+
+Donc :
+
+Ubuntu:8080
+     │
+     ▼
+Docker
+     │
+     ▼
+Container:80
+     │
+     ▼
+Nginx
+8. Tester dans le navigateur 🌐
+
+Sur la machine Ubuntu où Docker fonctionne, ouvre :
+
+http://localhost:8080
+
+Tu devrais voir la page :
+
+Welcome to nginx!
+
+🎉 Tu viens de faire ton premier port mapping Docker.
+
+9. Vérifier le mapping
+
+Exécute :
+
+docker ps
+
+Tu devrais avoir quelque chose ressemblant à :
+
+PORTS
+0.0.0.0:8080->80/tcp
+
+Cela signifie :
+
+8080 sur Ubuntu
+      ↓
+80 dans le container
+10. Tester avec curl
+
+Au lieu du navigateur :
+
+curl http://localhost:8080
+
+Tu devrais recevoir le HTML de la page Nginx.
+
+Tu peux également faire :
+
+curl -I http://localhost:8080
+
+Tu verras notamment une réponse HTTP du type :
+
+HTTP/1.1 200 OK
+Server: nginx
+11. docker port
+
+Docker possède également une commande pratique :
+
+docker port mon-nginx
+
+Tu devrais obtenir quelque chose comme :
+
+80/tcp -> 0.0.0.0:8080
+12. Modifier le port
+
+Tu pourrais décider d'utiliser le port 8081 :
+
+docker run -d --name nginx2 -p 8081:80 nginx
+
+Tu auras donc :
+
+http://localhost:8081
+
+Et tu pourrais avoir :
+
+nginx1 → 8080 → port 80
+nginx2 → 8081 → port 80
+nginx3 → 8082 → port 80
+
+Chaque container possède son propre espace réseau.
+
+13. Une erreur classique
+
+Si tu fais :
+
+docker run -d --name nginx2 -p 8080:80 nginx
+
+alors que mon-nginx utilise déjà :
+
+8080
+
+Docker va refuser le lancement parce que le port 8080 de l'hôte est déjà utilisé.
+
+Tu pourrais alors utiliser :
+
+docker run -d --name nginx2 -p 8081:80 nginx
+14. docker logs
+
+Les logs sont extrêmement importants en DevOps.
+
+docker logs mon-nginx
+
+Pour suivre les logs en temps réel :
+
+docker logs -f mon-nginx
+
+Le -f signifie :
+
+follow
+
+C'est très utile lorsqu'une application démarre et rencontre une erreur.
+
+15. docker exec
+
+Maintenant nous allons entrer dans notre container.
+
+docker exec -it mon-nginx bash
+
+Mais attention : certaines images très légères ne possèdent pas bash.
+
+Dans ce cas :
+
+docker exec -it mon-nginx sh
+
+Pour Nginx, bash peut être disponible selon l'image utilisée, mais sh est le choix le plus universel.
+
+16. Comprendre exec -it
+docker exec -it mon-nginx sh
+
+Décomposons :
+
+docker
+  │
+  └── Docker
+
+exec
+  │
+  └── exécuter une commande
+
+-i
+  │
+  └── interaction avec le terminal
+
+-t
+  │
+  └── pseudo-terminal
+
+mon-nginx
+  │
+  └── container cible
+
+sh
+  │
+  └── shell à exécuter
+
+Tu arrives alors dans :
+
+/ #
+
+Tu es à l'intérieur du container.
+
+17. Explorer le container
+
+Une fois dedans :
+
+ls
+
+Puis :
+
+cd /usr/share/nginx/html
+
+Et :
+
+ls
+
+Tu devrais trouver notamment :
+
+index.html
+
+Tu peux afficher le contenu :
+
+cat index.html
+
+C'est la page Nginx que ton navigateur reçoit.
+
+18. Sortir du container
+
+Tape :
+
+exit
+
+Tu reviens sur Ubuntu.
+
+19. docker inspect
+
+Une commande très importante pour le dépannage :
+
+docker inspect mon-nginx
+
+Docker va afficher énormément d'informations :
+
+ID du container
+image
+réseau
+IP
+ports
+volumes
+configuration
+variables d'environnement
+état
+etc.
+
+Tu peux voir certaines informations réseau plus facilement avec :
+
+docker inspect mon-nginx
+
+et rechercher la section :
+
+NetworkSettings
+20. docker stats
+
+Docker permet également de voir la consommation des containers :
+
+docker stats
+
+Tu verras notamment :
+
+CONTAINER
+CPU %
+MEM USAGE
+MEM %
+NET I/O
+BLOCK I/O
+
+C'est très intéressant pour le monitoring.
+
+21. Les variables d'environnement -e
+
+Une autre option importante :
+
+-e
+
+Elle permet de définir une variable d'environnement.
+
+Exemple :
+
+docker run -d \
+  --name test \
+  -e ENV=production \
+  nginx
+
+À l'intérieur du container :
+
+echo $ENV
+
+donnera :
+
+production
+
+Les variables d'environnement deviennent particulièrement importantes avec PostgreSQL, Node.js, Python et Docker Compose.
+
+22. Exemple PostgreSQL
+
+Plus tard nous utiliserons quelque chose comme :
+
+docker run -d \
+  --name postgres \
+  -e POSTGRES_PASSWORD=monmotdepasse \
+  postgres
+
+Tu vois déjà apparaître une architecture DevOps réelle :
+
+Nginx
+  │
+  ▼
+Application
+  │
+  ▼
+PostgreSQL
+
+Nous approfondirons PostgreSQL lorsque nous verrons les volumes, car une base de données doit conserver ses données même si le container est supprimé.
+
+23. --restart
+
+Docker peut également redémarrer automatiquement un container.
+
+Exemple :
+
+docker run -d \
+  --name mon-nginx \
+  --restart unless-stopped \
+  -p 8080:80 \
+  nginx
+
+Quelques politiques courantes :
+
+no
+always
+on-failure
+unless-stopped
+
+Par exemple :
+
+--restart unless-stopped
+
+signifie en gros :
+
+Redémarrer automatiquement le container après un arrêt/restart de Docker, sauf si tu l'as explicitement arrêté.
+
+24. Ta commande Docker complète
+
+Voici une commande que tu dois maintenant savoir lire :
+
+docker run -d \
+  --name mon-nginx \
+  --restart unless-stopped \
+  -p 8080:80 \
+  nginx
+
+Elle signifie :
+
+docker run
+│
+├── -d
+│   └── arrière-plan
+│
+├── --name mon-nginx
+│   └── nom du container
+│
+├── --restart unless-stopped
+│   └── politique de redémarrage
+│
+├── -p 8080:80
+│   ├── Ubuntu : 8080
+│   └── Container : 80
+│
+└── nginx
+    └── image utilisée
+25. 🧪 TP du cours 2
+
+Maintenant, ne te contente pas de lire. Fais le laboratoire.
+
+Étape 1 — Nettoyage
+docker rm -f mon-nginx
+
+Le -f force la suppression du container même s'il fonctionne.
+
+Étape 2 — Télécharger Nginx
+docker pull nginx
+Étape 3 — Créer le container
+docker run -d \
+  --name mon-nginx \
+  --restart unless-stopped \
+  -p 8080:80 \
+  nginx
+Étape 4 — Vérifier
+docker ps
+
+Tu dois trouver :
+
+mon-nginx
+
+et :
+
+0.0.0.0:8080->80/tcp
+Étape 5 — Tester
+curl http://localhost:8080
+Étape 6 — Regarder les logs
+docker logs mon-nginx
+
+Puis :
+
+docker logs -f mon-nginx
+
+Fais Ctrl+C pour arrêter l'affichage des logs.
+
+Étape 7 — Entrer dans le container
+docker exec -it mon-nginx sh
+
+Puis :
+
+hostname
+ls /usr/share/nginx/html
+cat /usr/share/nginx/html/index.html
+
+Puis :
+
+exit
+Étape 8 — Examiner le container
+docker inspect mon-nginx
+Étape 9 — Voir les ressources
+docker stats
+🧠 Cheat Sheet — Cours 2
+# Lancer en arrière-plan
+docker run -d IMAGE
+
+# Donner un nom
+docker run -d --name NAME IMAGE
+
+# Publier un port
+docker run -d -p 8080:80 IMAGE
+
+# Définir une variable
+docker run -e VARIABLE=VALEUR IMAGE
+
+# Redémarrage automatique
+docker run --restart unless-stopped IMAGE
+
+# Voir les containers
+docker ps
+
+# Voir tous les containers
+docker ps -a
+
+# Voir les logs
+docker logs CONTAINER
+
+# Suivre les logs
+docker logs -f CONTAINER
+
+# Entrer dans un container
+docker exec -it CONTAINER sh
+
+# Informations détaillées
+docker inspect CONTAINER
+
+# Consommation ressources
+docker stats
+
+# Arrêter
+docker stop CONTAINER
+
+# Supprimer
+docker rm CONTAINER
+🎯 Ce que tu dois retenir
+
+Les 5 notions essentielles du cours 2 sont :
+
+1. -d
+docker run -d nginx
+
+➡️ Exécuter en arrière-plan.
+
+2. --name
+--name mon-nginx
+
+➡️ Donner un nom facilement identifiable.
+
+3. -p
+-p 8080:80
+
+➡️ Faire correspondre :
+
+PORT HÔTE : PORT CONTAINER
+4. docker exec
+docker exec -it mon-nginx sh
+
+➡️ Exécuter une commande dans un container actif.
+
+5. docker logs
+docker logs mon-nginx
+
+➡️ Voir ce que produit l'application.
+
+🔜 Cours 3 : Dockerfile
+
+Maintenant que tu sais utiliser une image existante, nous allons apprendre à construire notre propre image.
+
+Nous partirons de :
+
+Dockerfile
+     │
+     ▼
+docker build
+     │
+     ▼
+IMAGE PERSONNALISÉE
+     │
+     ▼
+docker run
+     │
+     ▼
+CONTAINER
 
 
 
