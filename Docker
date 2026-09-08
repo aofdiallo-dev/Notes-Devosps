@@ -1,1 +1,666 @@
+🐳 Docker — Cours 1
+Comprendre Docker + installation sur Ubuntu + premier container
+
+On va partir de zéro, comme si tu n'avais jamais utilisé Docker. L'objectif de ce premier cours est que tu comprennes réellement ce que tu fais, et pas seulement que tu copies des commandes.
+
+1. Qu'est-ce que Docker ?
+
+Docker est une plateforme qui permet de packager et exécuter des applications dans des containers.
+
+Imagine que tu développes une application qui nécessite :
+
+Application
+├── Python 3.12
+├── PostgreSQL
+├── Nginx
+├── certaines librairies
+└── certaines configurations
+
+Sur ton ordinateur, tout fonctionne.
+
+Mais tu donnes ton projet à quelqu'un d'autre et il obtient :
+
+« Ça ne fonctionne pas chez moi. »
+
+C'est un problème classique en développement.
+
+Docker permet de créer un environnement reproductible contenant l'application et ce dont elle a besoin.
+
+2. Docker ≠ machine virtuelle
+
+C'est une notion très importante pour les entretiens DevOps.
+
+Machine virtuelle
+              Serveur physique
+                    │
+              ┌─────▼─────┐
+              │ Hypervisor│
+              └─────┬─────┘
+                    │
+       ┌────────────┼────────────┐
+       ▼            ▼            ▼
+    VM Linux      VM Linux     VM Windows
+       │            │            │
+   OS complet    OS complet   OS complet
+       │            │            │
+     App            App          App
+
+Chaque VM possède généralement son propre système d'exploitation invité.
+
+Exemples :
+
+VMware ESXi
+VirtualBox
+Hyper-V
+Proxmox
+Container Docker
+             Serveur Ubuntu
+                  │
+             Docker Engine
+                  │
+       ┌──────────┼──────────┐
+       ▼          ▼          ▼
+   Container   Container   Container
+      │           │           │
+     App         Nginx      PostgreSQL
+
+Les containers partagent le kernel du système hôte, contrairement aux VM classiques.
+
+Cela les rend généralement beaucoup plus légers et rapides à démarrer.
+
+3. Les 4 notions fondamentales
+
+Avant de commencer les commandes, retiens ceci :
+
+Dockerfile
+    │
+    ▼
+  IMAGE
+    │
+    │ docker run
+    ▼
+CONTAINER
+    │
+    ▼
+Application
+
+Et il existe aussi :
+
+Docker Hub
+    │
+    ▼
+Images disponibles
+    │
+    ▼
+docker pull
+    │
+    ▼
+Image locale
+3.1 Image
+
+Une image Docker est un modèle servant à créer un container.
+
+Par exemple :
+
+ubuntu
+nginx
+postgres
+redis
+python
+node
+
+Une image n'est pas directement ton application en cours d'exécution.
+
+Elle sert de base.
+
+3.2 Container
+
+Un container est une instance en fonctionnement d'une image.
+
+Par exemple :
+
+docker run ubuntu
+
+Docker prend l'image ubuntu et crée un container à partir d'elle.
+
+On peut avoir :
+
+Image Ubuntu
+     │
+     ├── Container 1
+     ├── Container 2
+     └── Container 3
+
+Une seule image peut donc servir à créer plusieurs containers.
+
+4. Installer Docker sur Ubuntu
+
+Nous allons utiliser la méthode officielle basée sur le dépôt Docker.
+
+Commence par ouvrir ton terminal Ubuntu.
+
+Étape 1 — Vérifier Ubuntu
+cat /etc/os-release
+
+Tu devrais obtenir quelque chose ressemblant à :
+
+NAME="Ubuntu"
+VERSION="24.04 LTS"
+
+Tu peux également utiliser :
+
+uname -a
+5. Mettre Ubuntu à jour
+sudo apt update
+Que fait cette commande ?
+
+Elle met à jour la liste des paquets disponibles.
+
+⚠️ Elle n'installe pas les mises à jour.
+
+C'est simplement :
+
+Serveurs Ubuntu
+      │
+      ▼
+Nouvelle liste des paquets
+      │
+      ▼
+Ubuntu local
+
+Ensuite :
+
+sudo apt upgrade
+
+Cette commande installe les mises à jour disponibles.
+
+6. Installer les prérequis
+
+Nous allons installer les outils nécessaires pour utiliser le dépôt Docker :
+
+sudo apt install ca-certificates curl
+
+Explication :
+
+Commande/paquet	Utilité
+apt	gestionnaire de paquets Ubuntu
+ca-certificates	certificats HTTPS
+curl	télécharger/récupérer des données via HTTP/HTTPS
+sudo	exécuter avec les privilèges administrateur
+7. Ajouter la clé du dépôt Docker
+
+Créer le dossier :
+
+sudo install -m 0755 -d /etc/apt/keyrings
+
+Puis récupérer la clé officielle Docker :
+
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
+-o /etc/apt/keyrings/docker.asc
+
+Puis :
+
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+
+Pourquoi ?
+
+Parce qu'APT doit pouvoir vérifier cryptographiquement les paquets provenant du dépôt Docker.
+
+8. Ajouter le dépôt Docker
+
+Exécute :
+
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+  $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | \
+  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+Puis :
+
+sudo apt update
+
+À partir de maintenant, Ubuntu connaît le dépôt officiel Docker.
+
+9. Installer Docker
+
+Installe Docker Engine et les composants courants :
+
+sudo apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+Tu installes notamment :
+
+docker-ce
+    │
+    └── Docker Engine
+
+docker-ce-cli
+    │
+    └── commande docker
+
+containerd.io
+    │
+    └── runtime de containers
+
+docker-buildx-plugin
+    │
+    └── construction avancée d'images
+
+docker-compose-plugin
+    │
+    └── Docker Compose
+10. Vérifier l'installation
+
+Première commande :
+
+docker --version
+
+Puis :
+
+docker compose version
+
+Tu dois obtenir une version Docker et une version Docker Compose.
+
+11. Vérifier le service Docker
+sudo systemctl status docker
+
+Tu devrais voir quelque chose comme :
+
+Active: active (running)
+
+Cela signifie que le Docker Engine fonctionne.
+
+12. Comprendre systemctl
+
+Cette commande sera très utile pour ton apprentissage Linux/DevOps.
+
+systemctl status docker
+
+signifie :
+
+« Quel est l'état du service Docker ? »
+
+Tu peux aussi faire :
+
+sudo systemctl start docker
+
+pour démarrer Docker.
+
+sudo systemctl stop docker
+
+pour arrêter Docker.
+
+sudo systemctl restart docker
+
+pour redémarrer Docker.
+
+Et :
+
+sudo systemctl enable docker
+
+pour faire démarrer Docker automatiquement avec Ubuntu.
+
+13. Premier problème possible : permission denied
+
+Si tu exécutes :
+
+docker ps
+
+et que tu obtiens une erreur du type :
+
+permission denied
+
+c'est généralement parce que ton utilisateur n'a pas encore accès au socket Docker.
+
+Tu peux ajouter ton utilisateur au groupe docker :
+
+sudo usermod -aG docker $USER
+
+Puis déconnecte-toi et reconnecte-toi à ta session Ubuntu.
+
+Ensuite :
+
+docker ps
+
+Tu ne devrais plus avoir besoin de sudo.
+
+⚠️ Point important pour la sécurité : le groupe docker donne des privilèges très élevés sur la machine. Nous reviendrons sur ce sujet lorsque nous étudierons la sécurité Docker.
+
+14. Notre premier container 🚀
+
+Maintenant, nous allons vraiment utiliser Docker.
+
+Exécute :
+
+docker run hello-world
+
+C'est probablement la commande Docker la plus importante de ce premier cours.
+
+Que se passe-t-il ?
+
+docker run hello-world
+       │
+       ▼
+Docker cherche l'image
+       │
+       ▼
+Image absente localement ?
+       │
+       ▼
+docker pull
+       │
+       ▼
+Téléchargement de hello-world
+       │
+       ▼
+Création du container
+       │
+       ▼
+Exécution
+       │
+       ▼
+Message "Hello from Docker!"
+15. Vérifier l'image téléchargée
+
+Exécute :
+
+docker images
+
+Tu devrais voir une ligne contenant :
+
+hello-world
+
+La commande :
+
+docker images
+
+affiche les images présentes sur ta machine.
+
+16. Voir les containers
+
+Maintenant :
+
+docker ps
+
+Tu risques de ne rien voir.
+
+Pourquoi ?
+
+Parce que docker ps affiche principalement les containers actuellement en fonctionnement.
+
+Notre container hello-world a terminé son programme.
+
+Pour voir également les containers arrêtés :
+
+docker ps -a
+
+Tu devrais voir quelque chose comme :
+
+CONTAINER ID
+IMAGE
+COMMAND
+STATUS
+NAMES
+17. Très important : docker ps vs docker ps -a
+
+Retient cette différence :
+
+docker ps
+
+➡️ containers actuellement actifs.
+
+docker ps -a
+
+➡️ containers actifs + arrêtés.
+
+C'est une question classique en entretien Docker.
+
+18. Lancer un vrai container
+
+Maintenant nous allons lancer Ubuntu.
+
+docker run -it ubuntu bash
+
+Regardons la commande :
+
+docker
+  │
+  └── commande Docker
+
+run
+  │
+  └── créer et démarrer un container
+
+-it
+  │
+  ├── -i = interactive
+  └── -t = terminal
+
+ubuntu
+  │
+  └── image utilisée
+
+bash
+  │
+  └── programme lancé dans le container
+
+Tu devrais maintenant obtenir quelque chose comme :
+
+root@xxxxxxxx:/#
+
+🎉 Tu es maintenant à l'intérieur d'un container Ubuntu.
+
+19. Vérifier que tu es dans le container
+
+Exécute :
+
+cat /etc/os-release
+
+Tu verras les informations Ubuntu du container.
+
+Puis :
+
+hostname
+
+Tu verras le nom/ID du container.
+
+Tu peux également faire :
+
+ls
+20. Container ≠ ordinateur virtuel
+
+C'est ici qu'il faut bien comprendre la différence.
+
+Lorsque tu fais :
+
+docker run -it ubuntu bash
+
+tu as l'impression d'être dans un petit ordinateur.
+
+Mais ce n'est pas une VM complète.
+
+Le container utilise notamment le kernel de la machine hôte.
+
+C'est l'une des raisons pour lesquelles Docker est très léger comparé à une VM traditionnelle.
+
+21. Sortir du container
+
+Tape :
+
+exit
+
+Tu reviens à ton Ubuntu principal.
+
+Puis :
+
+docker ps
+
+Le container n'est plus actif.
+
+Mais :
+
+docker ps -a
+
+va toujours l'afficher.
+
+22. Démarrer un container existant
+
+Tu peux voir son nom avec :
+
+docker ps -a
+
+Supposons que Docker lui ait donné le nom :
+
+friendly_name
+
+Tu peux le démarrer :
+
+docker start friendly_name
+
+Puis :
+
+docker ps
+23. Arrêter un container
+docker stop friendly_name
+24. Supprimer un container
+docker rm friendly_name
+
+Attention :
+
+docker rm
+
+supprime le container, pas nécessairement l'image.
+
+Donc :
+
+IMAGE
+ │
+ ├── Container A
+ ├── Container B
+ └── Container C
+
+Si tu supprimes :
+
+docker rm ContainerA
+
+l'image reste disponible.
+
+25. Supprimer une image
+
+Pour supprimer une image :
+
+docker rmi ubuntu
+
+ou :
+
+docker image rm ubuntu
+26. Les commandes à mémoriser aujourd'hui
+
+Voici ta première mini Cheat Sheet Docker :
+
+Commande	Fonction
+docker --version	version Docker
+docker ps	containers actifs
+docker ps -a	tous les containers
+docker images	images locales
+docker pull IMAGE	télécharger une image
+docker run IMAGE	créer + démarrer un container
+docker start CONTAINER	démarrer
+docker stop CONTAINER	arrêter
+docker restart CONTAINER	redémarrer
+docker rm CONTAINER	supprimer container
+docker rmi IMAGE	supprimer image
+docker exec	exécuter une commande dans un container
+docker logs	afficher les logs
+27. Ton premier exercice 🧪
+
+Ne passe pas encore au Dockerfile.
+
+Fais exactement cet exercice dans ton Ubuntu.
+
+Étape 1
+docker pull nginx
+Étape 2
+docker images
+Étape 3
+
+Lance Nginx :
+
+docker run -d --name mon-nginx nginx
+Étape 4
+
+Vérifie :
+
+docker ps
+Étape 5
+
+Regarde les logs :
+
+docker logs mon-nginx
+Étape 6
+
+Arrête Nginx :
+
+docker stop mon-nginx
+Étape 7
+
+Vérifie :
+
+docker ps
+Étape 8
+
+Puis :
+
+docker ps -a
+
+Tu devrais maintenant voir la différence entre container actif et container arrêté.
+
+🧠 Ce que tu dois absolument comprendre après le cours 1
+
+Tu dois être capable d'expliquer cette chaîne :
+
+        Docker Hub
+            │
+            │ docker pull
+            ▼
+         IMAGE
+            │
+            │ docker run
+            ▼
+       CONTAINER
+            │
+            ▼
+       APPLICATION
+
+Et surtout :
+
+Une image est un modèle. Un container est une instance créée à partir de cette image.
+
+Exemple :
+
+          nginx IMAGE
+              │
+       ┌──────┼──────┐
+       ▼      ▼      ▼
+    nginx-1 nginx-2 nginx-3
+   container container container
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
