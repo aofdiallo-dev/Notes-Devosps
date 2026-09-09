@@ -1,3 +1,36 @@
+Ce que tu dois absolument comprendre après le cours 1
+
+Tu dois être capable d'expliquer cette chaîne :
+
+        Docker Hub
+            │
+            │ docker pull
+            ▼
+         IMAGE
+            │
+            │ docker run
+            ▼
+       CONTAINER
+            │
+            ▼
+       APPLICATION
+
+Et surtout :
+
+Une image est un modèle. Un container est une instance créée à partir de cette image.
+
+Exemple :
+
+          nginx IMAGE
+              │
+       ┌──────┼──────┐
+       ▼      ▼      ▼
+    nginx-1 nginx-2 nginx-3
+   container container container
+
+
+
+
 Ce que tu dois retenir
 
 Les 5 notions essentielles du cours 2 sont :
