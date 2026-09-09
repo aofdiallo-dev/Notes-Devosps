@@ -1,1 +1,884 @@
 
+🐳 Docker — Cours 3 : Dockerfile
+
+Dans les deux premiers cours, tu as appris à utiliser des images existantes :
+
+docker pull nginx
+docker run -d --name mon-nginx -p 8080:80 nginx
+
+Maintenant, nous allons apprendre quelque chose de fondamental en DevOps :
+
+Créer notre propre image Docker.
+
+La chaîne devient :
+
+Dockerfile
+    │
+    │ docker build
+    ▼
+Image personnalisée
+    │
+    │ docker run
+    ▼
+Container
+    │
+    ▼
+Application
+1. Qu'est-ce qu'un Dockerfile ?
+
+Un Dockerfile est un fichier texte qui contient les instructions permettant de construire une image Docker.
+
+Par exemple :
+
+FROM ubuntu:24.04
+
+RUN apt update && apt install -y nginx
+
+COPY index.html /var/www/html/index.html
+
+CMD ["nginx", "-g", "daemon off;"]
+
+Docker lit ce fichier ligne par ligne et construit une image.
+
+2. Pourquoi utiliser un Dockerfile ?
+
+Imagine que tu dois installer manuellement une application sur 20 serveurs.
+
+Tu devrais faire :
+
+Serveur 1 → installation
+Serveur 2 → installation
+Serveur 3 → installation
+...
+Serveur 20 → installation
+
+C'est long et source d'erreurs.
+
+Avec un Dockerfile :
+
+Dockerfile
+    │
+    ▼
+docker build
+    │
+    ▼
+Image
+    │
+    ├── Container 1
+    ├── Container 2
+    ├── Container 3
+    └── Container 20
+
+Tu construis une fois, puis tu peux créer autant de containers que nécessaire.
+
+3. Créer notre premier projet
+
+Dans Ubuntu :
+
+mkdir docker-cours3
+
+Puis :
+
+cd docker-cours3
+
+Vérifie :
+
+pwd
+
+Tu devrais être dans quelque chose comme :
+
+/home/ton-utilisateur/docker-cours3
+4. Créer le Dockerfile
+
+Crée le fichier :
+
+nano Dockerfile
+
+⚠️ Le nom doit être exactement :
+
+Dockerfile
+
+Pas :
+
+Dockerfile.txt
+
+ni :
+
+dockerfile
+
+Traditionnellement, on utilise Dockerfile avec un D majuscule.
+
+5. Notre premier Dockerfile
+
+Mets ceci :
+
+FROM nginx:alpine
+
+COPY index.html /usr/share/nginx/html/index.html
+
+Enregistre :
+
+Ctrl + O
+
+Puis :
+
+Entrée
+
+Et quitte :
+
+Ctrl + X
+
+6. Comprendre FROM
+
+La première instruction est généralement :
+
+FROM nginx:alpine
+
+FROM indique l'image de base utilisée pour construire notre nouvelle image.
+
+Ici :
+
+nginx:alpine
+
+signifie :
+
+nginx
+ │
+ └── serveur Web Nginx
+
+alpine
+ │
+ └── variante basée sur Alpine Linux
+
+Notre image devient donc :
+
+Image nginx:alpine
+       │
+       ▼
+Notre Dockerfile
+       │
+       ▼
+Notre image personnalisée
+À retenir
+FROM IMAGE
+
+➡️ Définit l'image de base.
+
+C'est une instruction obligatoire dans la grande majorité des Dockerfiles classiques.
+
+7. Créer notre page Web
+
+Dans le même dossier :
+
+nano index.html
+
+Écris :
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Mon Docker</title>
+</head>
+<body>
+    <h1>Bonjour depuis Docker !</h1>
+    <p>Ma première image Docker personnalisée.</p>
+</body>
+</html>
+
+Enregistre puis quitte.
+
+Ton dossier doit maintenant contenir :
+
+docker-cours3/
+├── Dockerfile
+└── index.html
+
+Vérifie :
+
+ls -lah
+8. Comprendre COPY
+
+Dans le Dockerfile :
+
+COPY index.html /usr/share/nginx/html/index.html
+
+Cela signifie :
+
+Prendre index.html depuis ma machine et le copier dans l'image.
+
+On a donc :
+
+Machine Ubuntu
+│
+├── Dockerfile
+└── index.html
+        │
+        │ COPY
+        ▼
+Image Docker
+│
+└── /usr/share/nginx/html/index.html
+
+Le dossier :
+
+/usr/share/nginx/html
+
+est le répertoire utilisé par l'image Nginx pour les fichiers Web.
+
+9. Construire notre image
+
+Maintenant vient une commande extrêmement importante :
+
+docker build -t mon-nginx:v1 .
+
+Décomposons-la :
+
+docker
+   │
+   └── Docker
+
+build
+   │
+   └── construire une image
+
+-t
+   │
+   └── donner un nom/tag
+
+mon-nginx:v1
+   │
+   ├── nom = mon-nginx
+   └── tag = v1
+
+.
+   │
+   └── contexte de build actuel
+10. Pourquoi le . est important ?
+
+Dans :
+
+docker build -t mon-nginx:v1 .
+
+le point signifie :
+
+Utilise le dossier actuel comme contexte de build.
+
+Docker peut donc accéder à :
+
+Dockerfile
+index.html
+
+qui se trouvent dans ce dossier.
+
+Tu peux visualiser :
+
+docker-cours3/
+│
+├── Dockerfile
+├── index.html
+└── contexte Docker
+11. Vérifier l'image
+
+Après le build :
+
+docker images
+
+Tu devrais trouver :
+
+mon-nginx
+
+avec le tag :
+
+v1
+
+Tu peux également faire :
+
+docker image ls
+
+C'est équivalent à :
+
+docker images
+12. Lancer notre image
+
+Maintenant :
+
+docker run -d \
+  --name mon-site \
+  -p 8080:80 \
+  mon-nginx:v1
+
+Vérifie :
+
+docker ps
+
+Puis ouvre :
+
+http://localhost:8080
+
+Tu devrais voir :
+
+Bonjour depuis Docker !
+
+🎉 Tu viens de créer ta première image Docker personnalisée.
+
+13. Comprendre ce qui vient de se passer
+
+Tu as réalisé :
+
+             Dockerfile
+                 │
+                 │ docker build
+                 ▼
+          ┌───────────────┐
+          │ mon-nginx:v1  │
+          │     IMAGE     │
+          └───────┬───────┘
+                  │
+                  │ docker run
+                  ▼
+          ┌───────────────┐
+          │   mon-site    │
+          │   CONTAINER   │
+          └───────┬───────┘
+                  │
+                  │ port 8080
+                  ▼
+              Navigateur
+14. RUN : exécuter une commande pendant le build
+
+Maintenant, une instruction très importante :
+
+RUN
+
+Exemple :
+
+FROM ubuntu:24.04
+
+RUN apt update
+RUN apt install -y nginx
+
+Chaque RUN exécute une commande pendant la construction de l'image.
+
+Attention à cette distinction :
+
+RUN
+docker build
+     │
+     ▼
+RUN
+
+➡️ pendant la construction de l'image.
+
+CMD
+docker run
+     │
+     ▼
+CMD
+
+➡️ au démarrage du container.
+
+C'est une différence fondamentale.
+
+15. Exemple avec RUN
+
+Crée un nouveau Dockerfile :
+
+nano Dockerfile
+
+Mets :
+
+FROM ubuntu:24.04
+
+RUN apt update
+RUN apt install -y curl
+
+Puis :
+
+docker build -t ubuntu-curl:v1 .
+
+Docker va :
+
+FROM ubuntu:24.04
+        │
+        ▼
+RUN apt update
+        │
+        ▼
+RUN apt install curl
+        │
+        ▼
+ubuntu-curl:v1
+16. CMD
+
+CMD définit la commande par défaut exécutée lorsque le container démarre.
+
+Exemple :
+
+FROM ubuntu:24.04
+
+CMD ["echo", "Bonjour Docker"]
+
+Construis :
+
+docker build -t test-cmd:v1 .
+
+Puis :
+
+docker run --name test-cmd test-cmd:v1
+
+Résultat :
+
+Bonjour Docker
+17. CMD avec Nginx
+
+Dans notre premier Dockerfile :
+
+FROM nginx:alpine
+
+COPY index.html /usr/share/nginx/html/index.html
+
+Nous n'avons pas défini CMD.
+
+Pourquoi ?
+
+Parce que l'image nginx:alpine possède déjà sa commande de démarrage.
+
+C'est une notion importante :
+
+Une image peut hériter d'instructions provenant de son image de base.
+
+18. ENTRYPOINT
+
+Tu rencontreras également :
+
+ENTRYPOINT
+
+Il sert à définir le programme principal du container.
+
+Par exemple :
+
+FROM ubuntu:24.04
+
+ENTRYPOINT ["echo"]
+
+Puis :
+
+docker build -t test-entrypoint:v1 .
+
+Et :
+
+docker run test-entrypoint:v1 "Bonjour"
+
+Résultat :
+
+Bonjour
+19. CMD vs ENTRYPOINT
+
+Pour l'instant, retiens simplement :
+
+Instruction	Rôle
+RUN	commande pendant le build
+CMD	commande par défaut au démarrage
+ENTRYPOINT	programme principal du container
+COPY	copier des fichiers
+FROM	image de base
+
+Nous approfondirons CMD et ENTRYPOINT dans un cours consacré aux commandes et processus Docker.
+
+20. WORKDIR
+
+WORKDIR définit le répertoire de travail.
+
+Exemple :
+
+FROM ubuntu:24.04
+
+WORKDIR /app
+
+COPY . .
+
+CMD ["bash"]
+
+Cela signifie :
+
+Container
+│
+└── /app
+     │
+     ├── fichiers
+     └── application
+
+Au lieu de faire :
+
+RUN cd /app
+
+on utilise :
+
+WORKDIR /app
+
+C'est beaucoup plus propre.
+
+21. ENV
+
+ENV permet de définir des variables d'environnement.
+
+Exemple :
+
+FROM ubuntu:24.04
+
+ENV APP_ENV=production
+
+Dans le container :
+
+echo $APP_ENV
+
+Résultat :
+
+production
+22. EXPOSE
+
+Tu verras souvent :
+
+EXPOSE 80
+
+Exemple :
+
+FROM nginx:alpine
+
+EXPOSE 80
+
+COPY index.html /usr/share/nginx/html/index.html
+
+⚠️ Attention :
+
+EXPOSE 80
+
+ne publie pas réellement le port 80 sur l'hôte.
+
+Pour publier le port, il faut toujours utiliser par exemple :
+
+docker run -p 8080:80 ...
+
+Donc :
+
+EXPOSE
+   │
+   └── documentation / métadonnée du port
+
+-p
+   │
+   └── publication réelle du port
+23. .dockerignore
+
+Voici une notion très importante pour les vrais projets.
+
+Imagine ton projet :
+
+mon-projet/
+├── Dockerfile
+├── application/
+├── .git/
+├── node_modules/
+├── logs/
+├── fichiers temporaires
+└── secrets
+
+Tu ne veux pas envoyer tout cela dans le contexte Docker.
+
+Crée :
+
+nano .dockerignore
+
+Par exemple :
+
+.git
+node_modules
+*.log
+.env
+
+Docker ignorera ces fichiers lors du build.
+
+24. Pourquoi .dockerignore est important ?
+
+Il permet :
+
+de réduire le contexte de build ;
+d'accélérer les builds ;
+d'éviter de copier des fichiers inutiles ;
+de réduire les risques de fuite de données sensibles.
+
+⚠️ Une règle essentielle :
+
+Ne mets jamais volontairement des secrets dans une image Docker.
+
+Nous verrons plus tard les Docker secrets, les variables d'environnement et les bonnes pratiques de sécurité.
+
+25. Les couches Docker 🧱
+
+Une notion importante pour comprendre les performances.
+
+Lorsque tu fais :
+
+FROM ubuntu:24.04
+
+RUN apt update
+
+RUN apt install -y nginx
+
+COPY index.html /var/www/html/
+
+Docker construit plusieurs couches.
+
+Conceptuellement :
+
+┌──────────────────────────┐
+│ COPY index.html          │
+├──────────────────────────┤
+│ RUN apt install nginx    │
+├──────────────────────────┤
+│ RUN apt update           │
+├──────────────────────────┤
+│ ubuntu:24.04             │
+└──────────────────────────┘
+
+Docker peut réutiliser certaines couches grâce au cache de build.
+
+C'est extrêmement important en DevOps.
+
+26. Exemple de cache
+
+Supposons :
+
+FROM nginx:alpine
+
+COPY index.html /usr/share/nginx/html/
+
+Tu modifies uniquement :
+
+index.html
+
+puis :
+
+docker build -t mon-nginx:v2 .
+
+Docker peut réutiliser les couches précédentes et reconstruire seulement ce qui est nécessaire.
+
+Cela rend les builds beaucoup plus rapides.
+
+27. Voir les détails d'une image
+
+Utilise :
+
+docker image inspect mon-nginx:v1
+
+Tu peux également voir l'historique :
+
+docker history mon-nginx:v1
+
+Cette dernière commande est très intéressante pour voir les couches créées par le Dockerfile.
+
+28. Nettoyer notre laboratoire
+
+Pour supprimer le container :
+
+docker rm -f mon-site
+
+Pour supprimer l'image :
+
+docker rmi mon-nginx:v1
+29. 🧪 TP complet du cours 3
+
+Je te conseille de refaire ce TP sans copier aveuglément.
+
+Crée :
+
+mkdir ~/docker-cours3
+cd ~/docker-cours3
+Dockerfile
+nano Dockerfile
+
+Contenu :
+
+FROM nginx:alpine
+
+COPY index.html /usr/share/nginx/html/index.html
+
+EXPOSE 80
+Page HTML
+nano index.html
+
+Contenu :
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Docker Cours 3</title>
+</head>
+<body>
+    <h1>Mon premier Dockerfile</h1>
+    <p>Je suis en train d'apprendre Docker pour le DevOps.</p>
+</body>
+</html>
+Construire
+docker build -t mon-site:v1 .
+Vérifier
+docker images
+Lancer
+docker run -d \
+  --name mon-site \
+  -p 8080:80 \
+  mon-site:v1
+Vérifier
+docker ps
+Tester
+curl http://localhost:8080
+
+Puis dans le navigateur :
+
+http://localhost:8080
+30. Modification de notre application
+
+Maintenant modifie :
+
+nano index.html
+
+Change par exemple :
+
+<h1>Version 2 de mon application Docker</h1>
+
+Puis reconstruis :
+
+docker build -t mon-site:v2 .
+
+Tu as maintenant :
+
+mon-site:v1
+mon-site:v2
+
+Tu peux vérifier :
+
+docker images
+31. Pourquoi utiliser des tags ?
+
+Les tags permettent de gérer les versions :
+
+mon-site:v1
+mon-site:v2
+mon-site:v3
+
+Dans un vrai projet, on peut utiliser :
+
+myapp:1.0.0
+myapp:1.1.0
+myapp:2.0.0
+
+Cela permet de savoir quelle version est déployée.
+
+⚠️ Évite de dépendre aveuglément de :
+
+latest
+
+pour les déploiements de production. Une version explicitement définie est généralement plus prévisible.
+
+🧠 Cheat Sheet — Dockerfile
+
+Voici ce que tu dois commencer à mémoriser :
+
+# Image de base
+FROM nginx:alpine
+
+# Copier un fichier
+COPY index.html /usr/share/nginx/html/
+
+# Répertoire de travail
+WORKDIR /app
+
+# Variable d'environnement
+ENV APP_ENV=production
+
+# Port documenté
+EXPOSE 80
+
+# Commande exécutée pendant le build
+RUN apt update
+
+# Commande par défaut au démarrage
+CMD ["nginx", "-g", "daemon off;"]
+
+# Programme principal
+ENTRYPOINT ["nginx"]
+
+Et les commandes :
+
+# Construire
+docker build -t mon-image:v1 .
+
+# Lister les images
+docker images
+
+# Inspecter
+docker image inspect mon-image:v1
+
+# Historique des couches
+docker history mon-image:v1
+
+# Lancer
+docker run -d --name mon-container -p 8080:80 mon-image:v1
+
+# Voir les containers
+docker ps
+
+# Logs
+docker logs mon-container
+
+# Entrer dans le container
+docker exec -it mon-container sh
+
+# Supprimer container
+docker rm -f mon-container
+
+# Supprimer image
+docker rmi mon-image:v1
+🎯 Les 7 notions à connaître après ce cours
+
+Tu dois maintenant savoir expliquer :
+
+FROM
+ ↓
+Image de base
+
+RUN
+ ↓
+Commande exécutée pendant le build
+
+COPY
+ ↓
+Copier des fichiers
+
+WORKDIR
+ ↓
+Répertoire de travail
+
+ENV
+ ↓
+Variables d'environnement
+
+EXPOSE
+ ↓
+Documenter un port
+
+CMD
+ ↓
+Commande par défaut au démarrage
+
+Et surtout, retiens cette différence :
+
+                 docker build
+                     │
+                     ▼
+                  IMAGE
+                     │
+                docker run
+                     │
+                     ▼
+                CONTAINER
