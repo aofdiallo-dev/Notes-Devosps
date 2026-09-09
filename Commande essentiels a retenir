@@ -1,0 +1,29 @@
+Ce que tu dois retenir
+
+Les 5 notions essentielles du cours 2 sont :
+
+1. -d
+docker run -d nginx
+
+➡️ Exécuter en arrière-plan.
+
+2. --name
+--name mon-nginx
+
+➡️ Donner un nom facilement identifiable.
+
+3. -p
+-p 8080:80
+
+➡️ Faire correspondre :
+
+PORT HÔTE : PORT CONTAINER
+4. docker exec
+docker exec -it mon-nginx sh
+
+➡️ Exécuter une commande dans un container actif.
+
+5. docker logs
+docker logs mon-nginx
+
+➡️ Voir ce que produit l'application.
