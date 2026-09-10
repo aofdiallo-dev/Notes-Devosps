@@ -1,0 +1,825 @@
+🔥 Étape suivante : Cours 4 — Volumes et persistance
+
+Nous allons résoudre un problème fondamental :
+
+Que se passe-t-il avec mes données lorsque je supprime mon container ?
+
+C'est là que nous introduirons :
+
+Container
+    │
+    ├── données temporaires
+    │
+    ▼
+Volume Docker
+    │
+    └── données persistantes
+
+Puis nous appliquerons cela à PostgreSQL, ce qui nous rapprochera d'un véritable environnement DevOps.
+
+aujourd’hui 0:53
+Étape suivante : Cours 4 — Volumes et persistance  
+🐳 Docker — Cours 4 : Volumes et persistance
+
+Dans les cours précédents, tu as appris :
+
+Cours 1 → Docker, images et containers
+Cours 2 → docker run, ports, exec, logs
+Cours 3 → Dockerfile et création d'images
+
+Aujourd'hui, on attaque une notion indispensable en DevOps :
+
+Comment conserver les données d'un container même lorsqu'on supprime le container ?
+
+C'est particulièrement important pour PostgreSQL, MySQL, Redis, etc.
+
+1. Le problème : les données d'un container
+
+Imagine que tu lances PostgreSQL :
+
+PostgreSQL
+     │
+     ▼
+Container
+     │
+     ▼
+Base de données
+
+Tu crées :
+
+users
+products
+orders
+
+Puis tu fais :
+
+docker rm postgres
+
+💥 Le container disparaît.
+
+Et si les données étaient stockées uniquement dans le système de fichiers du container, elles peuvent disparaître avec lui.
+
+Il faut donc séparer :
+
+Application
+    │
+    ▼
+Container
+    │
+    │
+    └──────────────┐
+                   ▼
+              Volume Docker
+                   │
+                   ▼
+              Données
+2. Qu'est-ce qu'un volume Docker ?
+
+Un volume est un espace de stockage géré par Docker, conçu notamment pour conserver les données indépendamment du cycle de vie du container.
+
+On peut avoir :
+
+Container
+   │
+   └── /data
+          │
+          ▼
+      Volume Docker
+          │
+          ▼
+     données persistantes
+
+Si tu supprimes le container :
+
+Container ❌
+Volume    ✅
+Données   ✅
+
+C'est le principe fondamental de la persistance.
+
+3. Les trois principaux mécanismes de stockage
+
+Docker permet notamment d'utiliser :
+
+1️⃣ Docker volume
+Volume Docker
+2️⃣ Bind mount
+Dossier Ubuntu
+      │
+      ▼
+Container
+3️⃣ tmpfs
+
+Stockage temporaire en mémoire.
+
+Pour notre apprentissage, nous allons surtout nous concentrer sur :
+
+Volumes Docker + Bind mounts
+
+4. Créer notre premier volume
+
+Commence par :
+
+docker volume create mon-volume
+
+Puis :
+
+docker volume ls
+
+Tu devrais voir :
+
+DRIVER    VOLUME NAME
+local     mon-volume
+5. Inspecter le volume
+docker volume inspect mon-volume
+
+Docker affichera des informations comme :
+
+[
+    {
+        "Name": "mon-volume",
+        "Driver": "local",
+        "Mountpoint": "/var/lib/docker/volumes/mon-volume/_data"
+    }
+]
+
+Le Mountpoint correspond à l'endroit où Docker gère physiquement les données du volume sur l'hôte.
+
+⚠️ Évite de modifier directement les fichiers dans /var/lib/docker/volumes/. Utilise Docker pour gérer tes volumes.
+
+6. Monter le volume dans un container
+
+Nous allons utiliser une image Ubuntu.
+
+docker run -it \
+  --name test-volume \
+  -v mon-volume:/data \
+  ubuntu:24.04 \
+  bash
+
+Regardons :
+
+-v mon-volume:/data
+   │          │
+   │          └── chemin dans le container
+   │
+   └───────────── volume Docker
+
+Donc :
+
+Docker volume
+mon-volume
+     │
+     ▼
+/data
+dans le container
+7. Créer un fichier
+
+Nous sommes maintenant dans le container.
+
+Tape :
+
+echo "Bonjour Docker" > /data/message.txt
+
+Puis :
+
+cat /data/message.txt
+
+Résultat :
+
+Bonjour Docker
+8. Quitter le container
+exit
+
+Puis vérifie :
+
+docker ps -a
+
+Tu verras :
+
+test-volume
+Exited
+9. Supprimer le container
+
+Maintenant :
+
+docker rm test-volume
+
+Le container est supprimé.
+
+Mais le volume existe toujours :
+
+docker volume ls
+
+Tu dois toujours voir :
+
+mon-volume
+
+C'est exactement ce que nous cherchons.
+
+10. Vérifier que les données sont toujours là
+
+Créons un nouveau container utilisant le même volume :
+
+docker run -it \
+  --name test-volume-2 \
+  -v mon-volume:/data \
+  ubuntu:24.04 \
+  bash
+
+Puis :
+
+cat /data/message.txt
+
+Résultat :
+
+Bonjour Docker
+
+🎉
+
+Le premier container a été supprimé, mais les données sont toujours présentes.
+
+11. Visualisation
+
+Tu viens de réaliser :
+
+                 Volume
+              mon-volume
+                   │
+             /data/message.txt
+                   │
+        ┌──────────┴──────────┐
+        │                     │
+        ▼                     ▼
+ Container 1             Container 2
+     ❌                       ✅
+ supprimé                nouveau
+
+Le volume a survécu au premier container.
+
+12. -v : syntaxe importante
+
+Tu dois retenir :
+
+-v VOLUME:CHEMIN_CONTAINER
+
+Exemple :
+
+-v mon-volume:/data
+
+Cela signifie :
+
+mon-volume
+     │
+     ▼
+/data
+13. La syntaxe moderne --mount
+
+Docker permet également :
+
+--mount
+
+Par exemple :
+
+docker run -it \
+  --name test-volume \
+  --mount source=mon-volume,target=/data \
+  ubuntu:24.04 \
+  bash
+
+C'est plus verbeux que :
+
+-v mon-volume:/data
+
+mais souvent plus explicite.
+
+Comparaison
+-v mon-volume:/data
+
+vs
+
+--mount source=mon-volume,target=/data
+
+Pour débuter :
+
+-v est plus rapide à écrire, --mount est plus explicite.
+
+14. Supprimer un volume
+
+Attention :
+
+docker rm test-volume-2
+
+ne supprime pas le volume.
+
+Pour supprimer le volume :
+
+docker volume rm mon-volume
+
+Puis :
+
+docker volume ls
+
+Il devrait disparaître.
+
+⚠️ La suppression d'un volume peut entraîner la perte définitive des données qu'il contient.
+
+15. docker volume prune
+
+Docker permet également :
+
+docker volume prune
+
+Cette commande supprime les volumes inutilisés.
+
+⚠️ Attention avec cette commande.
+
+Ne l'exécute pas sur un serveur de production sans comprendre exactement quels volumes sont inutilisés.
+
+16. Bind mount
+
+Maintenant une autre méthode.
+
+Supposons que tu crées sur Ubuntu :
+
+mkdir ~/docker-data
+
+Puis :
+
+echo "Fichier créé sur Ubuntu" > ~/docker-data/test.txt
+
+Regarde :
+
+cat ~/docker-data/test.txt
+17. Monter le dossier Ubuntu
+
+Lance :
+
+docker run -it \
+  --name bind-test \
+  -v ~/docker-data:/data \
+  ubuntu:24.04 \
+  bash
+
+Dans le container :
+
+cat /data/test.txt
+
+Tu dois obtenir :
+
+Fichier créé sur Ubuntu
+
+Pourquoi ?
+
+Parce que :
+
+Ubuntu
+~/docker-data
+      │
+      │ bind mount
+      ▼
+Container
+/data
+18. Modifier depuis le container
+
+Dans le container :
+
+echo "Modification depuis Docker" > /data/docker.txt
+
+Puis :
+
+exit
+
+Sur Ubuntu :
+
+ls ~/docker-data
+
+Tu devrais voir :
+
+docker.txt
+test.txt
+
+Et :
+
+cat ~/docker-data/docker.txt
+
+Résultat :
+
+Modification depuis Docker
+
+Le fichier créé dans le container existe donc directement dans ton dossier Ubuntu.
+
+19. Volume vs Bind Mount
+
+Voici une distinction très importante pour les entretiens.
+
+	Volume	Bind mount
+Gestion	Docker	Administrateur
+Emplacement	géré par Docker	chemin choisi
+Exemple	mon-volume:/data	~/docker-data:/data
+Portabilité	bonne	dépend du chemin
+Contrôle du dossier hôte	limité	élevé
+Cas fréquent	données applicatives	développement/configuration
+20. Quand utiliser un volume ?
+
+Un volume est particulièrement adapté pour :
+
+PostgreSQL
+MySQL
+MariaDB
+Redis
+
+Exemple :
+
+PostgreSQL
+    │
+    ▼
+/var/lib/postgresql/data
+    │
+    ▼
+Volume Docker
+
+Ainsi :
+
+Container PostgreSQL ❌
+        │
+        ▼
+Volume PostgreSQL ✅
+        │
+        ▼
+Données ✅
+21. Premier PostgreSQL 🐘
+
+Maintenant nous allons utiliser ce que nous avons appris.
+
+Supprime d'abord ton ancien container de test si nécessaire :
+
+docker rm -f test-volume-2
+
+Puis crée un volume :
+
+docker volume create postgres-data
+
+Lance PostgreSQL :
+
+docker run -d \
+  --name postgres-dev \
+  -e POSTGRES_PASSWORD=devpass \
+  -v postgres-data:/var/lib/postgresql/data \
+  postgres:16
+
+⚠️ La version exacte de PostgreSQL peut évoluer. Ici nous utilisons volontairement postgres:16 pour avoir une version explicitement définie plutôt que latest.
+
+22. Vérifier PostgreSQL
+docker ps
+
+Tu devrais avoir :
+
+postgres-dev
+
+Regarde les logs :
+
+docker logs postgres-dev
+
+Tu dois attendre que PostgreSQL soit prêt.
+
+Tu verras notamment un message indiquant que le serveur est prêt à accepter les connexions.
+
+23. Entrer dans PostgreSQL
+
+Tu peux utiliser :
+
+docker exec -it postgres-dev psql -U postgres
+
+Tu arrives dans PostgreSQL :
+
+postgres=#
+24. Créer une base de données
+
+Dans PostgreSQL :
+
+CREATE DATABASE devops;
+
+Puis :
+
+\l
+
+Tu devrais voir :
+
+devops
+
+Quitte PostgreSQL :
+
+\q
+25. Le test de persistance
+
+Maintenant nous allons faire quelque chose d'important.
+
+Supprime le container :
+
+docker rm -f postgres-dev
+
+⚠️ Nous supprimons uniquement le container.
+
+Le volume :
+
+postgres-data
+
+doit rester.
+
+Vérifie :
+
+docker volume ls
+26. Recréer PostgreSQL avec le même volume
+docker run -d \
+  --name postgres-dev \
+  -e POSTGRES_PASSWORD=devpass \
+  -v postgres-data:/var/lib/postgresql/data \
+  postgres:16
+
+Attends quelques secondes puis :
+
+docker exec -it postgres-dev psql -U postgres
+
+Puis :
+
+\l
+
+Tu dois retrouver :
+
+devops
+
+🎉 Tu viens de démontrer la persistance des données Docker.
+
+27. Architecture que tu viens de créer
+                  Ubuntu
+                    │
+                Docker Engine
+                    │
+                    ▼
+             ┌───────────────┐
+             │  PostgreSQL   │
+             │   Container   │
+             └───────┬───────┘
+                     │
+                     │ mount
+                     ▼
+             ┌───────────────┐
+             │ postgres-data │
+             │    VOLUME     │
+             └───────────────┘
+                     │
+                     ▼
+               Base de données
+
+C'est déjà une architecture que tu retrouveras dans de vrais environnements DevOps.
+
+28. Très important : un volume n'est pas une sauvegarde
+
+Il faut faire une distinction :
+
+Volume ≠ Backup
+
+Un volume protège contre la suppression du container, mais il ne protège pas nécessairement contre :
+
+panne du disque ;
+suppression accidentelle du volume ;
+corruption ;
+problème de serveur ;
+ransomware ;
+perte complète de la machine.
+
+Donc en production :
+
+PostgreSQL
+    │
+    ▼
+Volume
+    │
+    ▼
+Backup
+    │
+    ▼
+Stockage externe
+
+Nous verrons les stratégies de sauvegarde plus tard.
+
+29. Volumes anonymes
+
+Tu peux également rencontrer des volumes sans nom explicite.
+
+Par exemple certaines images déclarent leurs propres volumes.
+
+Docker peut alors créer un volume avec un identifiant difficile à retenir.
+
+Pour un environnement de développement ou de production, il est généralement préférable de nommer explicitement les volumes importants.
+
+Exemple :
+
+-v postgres-data:/var/lib/postgresql/data
+
+est beaucoup plus clair que de laisser Docker générer un volume anonyme.
+
+30. Attention aux permissions
+
+Avec les bind mounts, tu peux rencontrer :
+
+Permission denied
+
+Pourquoi ?
+
+Parce que le processus dans le container et ton utilisateur Ubuntu peuvent avoir des UID/GID différents.
+
+C'est un problème très courant en environnement DevOps.
+
+Nous l'étudierons plus en profondeur lorsque nous parlerons de :
+
+utilisateurs Docker ;
+sécurité ;
+UID/GID ;
+containers non-root.
+31. 🧪 TP du cours 4
+
+Je te conseille de réaliser ce laboratoire sans regarder les réponses immédiatement.
+
+Partie A — Volume
+
+Crée :
+
+docker volume create cours4-data
+
+Puis un container :
+
+docker run -it \
+  --name cours4-container \
+  -v cours4-data:/data \
+  ubuntu:24.04 \
+  bash
+
+Dans le container :
+
+echo "Docker DevOps" > /data/test.txt
+
+Puis :
+
+exit
+
+Supprime :
+
+docker rm cours4-container
+
+Recrée un nouveau container avec le même volume :
+
+docker run -it \
+  --name cours4-container2 \
+  -v cours4-data:/data \
+  ubuntu:24.04 \
+  bash
+
+Puis :
+
+cat /data/test.txt
+
+Tu dois obtenir :
+
+Docker DevOps
+32. Partie B — Bind mount
+
+Sur Ubuntu :
+
+mkdir -p ~/docker-cours4
+
+Puis :
+
+echo "Bonjour depuis Ubuntu" > ~/docker-cours4/test.txt
+
+Lance :
+
+docker run -it \
+  --name bind-cours4 \
+  -v ~/docker-cours4:/data \
+  ubuntu:24.04 \
+  bash
+
+Dans le container :
+
+cat /data/test.txt
+
+Puis :
+
+echo "Message depuis le container" > /data/docker.txt
+
+Sors :
+
+exit
+
+Sur Ubuntu :
+
+ls ~/docker-cours4
+
+Puis :
+
+cat ~/docker-cours4/docker.txt
+33. Partie C — PostgreSQL
+
+Crée :
+
+docker volume create postgres-cours4
+
+Puis :
+
+docker run -d \
+  --name postgres-cours4 \
+  -e POSTGRES_PASSWORD=devpass \
+  -v postgres-cours4:/var/lib/postgresql/data \
+  postgres:16
+
+Vérifie :
+
+docker ps
+
+Puis :
+
+docker logs postgres-cours4
+
+Entre dans PostgreSQL :
+
+docker exec -it postgres-cours4 psql -U postgres
+
+Crée :
+
+CREATE DATABASE cours4;
+
+Puis :
+
+\q
+
+Supprime le container :
+
+docker rm -f postgres-cours4
+
+Recrée-le avec le même volume :
+
+docker run -d \
+  --name postgres-cours4 \
+  -e POSTGRES_PASSWORD=devpass \
+  -v postgres-cours4:/var/lib/postgresql/data \
+  postgres:16
+
+Puis vérifie :
+
+docker exec -it postgres-cours4 psql -U postgres
+
+Et :
+
+\l
+
+Si cours4 apparaît encore :
+
+✅ TP réussi.
+
+🧠 Cheat Sheet — Cours 4
+Volumes
+# Créer
+docker volume create mon-volume
+
+# Lister
+docker volume ls
+
+# Inspecter
+docker volume inspect mon-volume
+
+# Supprimer
+docker volume rm mon-volume
+
+# Nettoyer les volumes inutilisés
+docker volume prune
+Monter un volume
+docker run -v mon-volume:/data IMAGE
+
+ou :
+
+docker run --mount source=mon-volume,target=/data IMAGE
+Bind mount
+docker run -v ~/mon-dossier:/data IMAGE
+🎯 Ce qu'il faut retenir pour un entretien
+
+Si on te demande :
+
+« Qu'est-ce qu'un volume Docker ? »
+
+Tu peux répondre :
+
+Un volume Docker est un mécanisme de stockage persistant géré par Docker. Il permet de conserver les données indépendamment du cycle de vie d'un container. Il est particulièrement utilisé pour les bases de données comme PostgreSQL.
+
+« Quelle différence entre volume et bind mount ? »
+
+Réponse :
+
+Un volume est géré par Docker, tandis qu'un bind mount fait correspondre directement un chemin du système hôte avec un chemin dans le container.
+
+« Que se passe-t-il si je supprime un container qui utilise un volume ? »
+
+Réponse :
+
+La suppression du container ne supprime normalement pas le volume. Les données restent disponibles et peuvent être remontées dans un nouveau container.
