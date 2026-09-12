@@ -1,0 +1,884 @@
+Docker — Cours 5 : Les réseaux Docker
+
+Dans ce cours, on va comprendre comment les conteneurs communiquent entre eux et avec l’extérieur.
+
+C’est une étape très importante pour le DevOps, car une architecture réelle ressemble souvent à :
+
+                    INTERNET
+                       │
+                       ▼
+                  ┌─────────┐
+                  │  NGINX  │
+                  │  :80    │
+                  └────┬────┘
+                       │
+                       ▼
+                  ┌─────────┐
+                  │   APP   │
+                  │ :3000   │
+                  └────┬────┘
+                       │
+                       ▼
+                ┌─────────────┐
+                │ PostgreSQL  │
+                │    :5432    │
+                └─────────────┘
+
+Ces trois conteneurs doivent pouvoir communiquer sans nécessairement exposer tous leurs ports à Internet.
+
+1. Qu'est-ce qu'un réseau Docker ?
+
+Un réseau Docker permet à plusieurs conteneurs de communiquer entre eux.
+
+Sans réseau personnalisé :
+
+Container A       Container B
+     │                 │
+     └─────── ? ───────┘
+
+Avec un réseau Docker :
+
+              réseau docker
+        ┌──────────────────────┐
+        │                      │
+        │  ┌───────┐           │
+        │  │ Nginx │           │
+        │  └───┬───┘           │
+        │      │               │
+        │  ┌───▼───┐           │
+        │  │  App  │           │
+        │  └───┬───┘           │
+        │      │               │
+        │  ┌───▼──────┐        │
+        │  │PostgreSQL│        │
+        │  └──────────┘        │
+        │                      │
+        └──────────────────────┘
+
+Docker fournit plusieurs types de réseaux.
+
+Le plus important pour nous est :
+
+bridge
+
+2. Voir les réseaux existants
+
+Commence par :
+
+docker network ls
+
+Tu devrais voir quelque chose comme :
+
+NETWORK ID     NAME      DRIVER    SCOPE
+xxxxxxx        bridge    bridge    local
+xxxxxxx        host      host      local
+xxxxxxx        none      null      local
+Les trois réseaux par défaut
+Réseau	Utilisation
+bridge	Réseau Docker classique
+host	Utilise directement le réseau de l'hôte
+none	Pas de réseau
+
+Pour notre cours, nous allons principalement utiliser bridge et surtout créer nos propres réseaux bridge.
+
+3. Créer notre premier réseau
+
+Créons un réseau appelé mon-reseau.
+
+docker network create mon-reseau
+
+Vérifie :
+
+docker network ls
+
+Tu devrais maintenant avoir :
+
+mon-reseau
+4. Inspecter un réseau
+
+Utilise :
+
+docker network inspect mon-reseau
+
+Docker va afficher beaucoup d'informations.
+
+Tu verras notamment :
+
+"Name": "mon-reseau",
+"Driver": "bridge",
+"Containers": {}
+
+Pour l'instant :
+
+mon-reseau
+
+Containers:
+    aucun
+5. Connecter un conteneur au réseau
+
+Créons un premier conteneur :
+
+docker run -d \
+  --name nginx-reseau \
+  --network mon-reseau \
+  nginx
+
+Vérifie :
+
+docker ps
+
+Puis :
+
+docker network inspect mon-reseau
+
+Cette fois, tu devrais voir :
+
+mon-reseau
+     │
+     └── nginx-reseau
+6. Ajouter un deuxième conteneur
+
+Créons Ubuntu :
+
+docker run -dit \
+  --name ubuntu-reseau \
+  --network mon-reseau \
+  ubuntu:24.04
+
+Vérifie :
+
+docker network inspect mon-reseau
+
+Tu as maintenant :
+
+             mon-reseau
+                 │
+        ┌────────┴────────┐
+        │                 │
+   nginx-reseau     ubuntu-reseau
+
+Les deux conteneurs sont sur le même réseau.
+
+7. Le DNS Docker ⭐⭐⭐
+
+C'est l'une des notions les plus importantes du cours.
+
+Dans un réseau Docker personnalisé, les conteneurs peuvent se retrouver par leur nom.
+
+Par exemple :
+
+ubuntu-reseau
+      │
+      │ HTTP
+      ▼
+nginx-reseau
+
+Ubuntu peut communiquer avec Nginx en utilisant :
+
+nginx-reseau
+
+et non pas forcément son adresse IP.
+
+8. Tester la communication
+
+Entrons dans Ubuntu :
+
+docker exec -it ubuntu-reseau bash
+
+À l'intérieur :
+
+apt update
+apt install -y curl
+
+Puis :
+
+curl http://nginx-reseau
+
+Tu devrais recevoir la page HTML de Nginx.
+
+Par exemple :
+
+<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to nginx!</title>
+...
+
+🎉 Tu viens de faire communiquer deux conteneurs Docker.
+
+9. Pourquoi nginx-reseau fonctionne ?
+
+Parce que Docker possède un DNS interne.
+
+ubuntu-reseau
+      │
+      │ demande :
+      │ "Quelle est l'adresse de nginx-reseau ?"
+      ▼
+ DNS Docker
+      │
+      ▼
+ IP du conteneur Nginx
+
+Docker traduit automatiquement :
+
+nginx-reseau
+      ↓
+172.x.x.x
+
+Donc :
+
+curl http://nginx-reseau
+
+fonctionne.
+
+10. Attention : utiliser l'IP directement ❌
+
+Tu pourrais faire :
+
+curl http://172.18.0.2
+
+Mais ce n'est généralement pas une bonne pratique.
+
+Pourquoi ?
+
+Parce que l'adresse IP d'un conteneur peut changer.
+
+Par exemple :
+
+Nginx aujourd'hui
+172.18.0.2
+
+Nginx demain
+172.18.0.5
+
+Alors que son nom reste :
+
+nginx-reseau
+
+Donc on préfère :
+
+curl http://nginx-reseau
+11. -p et réseau Docker : attention ! ⭐⭐⭐
+
+C'est une confusion très fréquente chez les débutants.
+
+Lorsque tu fais :
+
+docker run -d -p 8080:80 nginx
+
+tu fais :
+
+ORDINATEUR
+localhost:8080
+      │
+      ▼
+CONTENEUR
+port 80
+
+Le -p sert à publier un port vers l'extérieur.
+
+Mais entre deux conteneurs ?
+
+Supposons :
+
+Nginx
+  │
+  ▼
+Application
+
+Si les deux sont sur le même réseau Docker, l'application peut être accessible directement par son port interne.
+
+Par exemple :
+
+http://app:3000
+
+Il n'est pas nécessaire de faire :
+
+-p 3000:3000
+
+pour que Nginx puisse communiquer avec elle.
+
+12. Différence fondamentale
+-p
+-p 8080:80
+
+signifie :
+
+HOST
+8080
+ │
+ ▼
+CONTAINER
+80
+
+C'est pour exposer un service vers l'hôte.
+
+Réseau Docker
+nginx → app:3000
+
+C'est pour permettre aux conteneurs de communiquer entre eux.
+
+13. Exemple PostgreSQL
+
+Maintenant, on va utiliser ce que tu as appris dans le Cours 4 sur les volumes.
+
+Nous allons créer :
+
+Application
+     │
+     ▼
+PostgreSQL
+
+avec :
+
+réseau : backend
+volume : postgres-data
+14. Créer le réseau backend
+docker network create backend
+
+Vérifie :
+
+docker network ls
+15. Créer le volume PostgreSQL
+docker volume create postgres-data
+16. Lancer PostgreSQL
+docker run -d \
+  --name postgres \
+  --network backend \
+  -e POSTGRES_PASSWORD=devpass \
+  -e POSTGRES_DB=devops \
+  -v postgres-data:/var/lib/postgresql/data \
+  postgres:16
+
+Décomposons.
+
+Nom
+--name postgres
+
+Le conteneur s'appelle :
+
+postgres
+Réseau
+--network backend
+
+Il rejoint :
+
+backend
+Mot de passe
+-e POSTGRES_PASSWORD=devpass
+Base de données
+-e POSTGRES_DB=devops
+Volume
+-v postgres-data:/var/lib/postgresql/data
+
+Les données PostgreSQL sont persistantes.
+
+17. Vérifier PostgreSQL
+docker ps
+
+Puis :
+
+docker logs postgres
+
+Tu peux également tester :
+
+docker exec -it postgres psql -U postgres -d devops
+
+Puis :
+
+SELECT version();
+
+Et :
+
+\q
+18. Créer un deuxième conteneur
+
+Pour tester la communication, nous pouvons utiliser Ubuntu :
+
+docker run -dit \
+  --name client-db \
+  --network backend \
+  ubuntu:24.04
+
+Entrons dedans :
+
+docker exec -it client-db bash
+
+Installons le client PostgreSQL :
+
+apt update
+apt install -y postgresql-client
+
+Puis :
+
+psql -h postgres -U postgres -d devops
+
+Mot de passe :
+
+devpass
+
+🎉
+
+Tu viens de faire :
+
+client-db
+    │
+    │ PostgreSQL
+    │ postgres:5432
+    ▼
+┌──────────────┐
+│  PostgreSQL  │
+│    :5432     │
+└──────────────┘
+
+Et remarque quelque chose d'important :
+
+psql -h postgres
+
+Nous utilisons le nom du conteneur.
+
+Pas son adresse IP.
+
+19. Architecture réelle Nginx → App → PostgreSQL
+
+Maintenant, on arrive à une architecture très utilisée en DevOps.
+
+                    INTERNET
+                       │
+                       │ :80
+                       ▼
+                ┌─────────────┐
+                │    NGINX    │
+                │    :80      │
+                └──────┬──────┘
+                       │
+                  frontend
+                       │
+                       ▼
+                ┌─────────────┐
+                │     APP     │
+                │    :3000    │
+                └──────┬──────┘
+                       │
+                  backend
+                       │
+                       ▼
+                ┌─────────────┐
+                │ PostgreSQL  │
+                │    :5432    │
+                └─────────────┘
+
+On pourrait avoir deux réseaux :
+
+             frontend
+        ┌────────────────┐
+        │                │
+      Nginx ─────────── App
+                         │
+                         │
+             backend     │
+        ┌────────────────┼───────┐
+        │                │       │
+        │              App       │
+        │                │       │
+        │           PostgreSQL   │
+        └────────────────────────┘
+
+L'idée est très intéressante :
+
+Nginx peut parler à l'application.
+L'application peut parler à PostgreSQL.
+PostgreSQL n'a pas besoin d'être directement accessible depuis Internet.
+20. Pourquoi plusieurs réseaux ?
+
+Pour améliorer la sécurité et l'organisation.
+
+Par exemple :
+
+Internet
+   │
+   ▼
+ Nginx
+   │
+   ▼
+ App
+   │
+   ▼
+ PostgreSQL
+
+On peut organiser :
+
+frontend network
+Nginx ↔ App
+
+backend network
+App ↔ PostgreSQL
+
+Ainsi :
+
+Nginx ───── App ───── PostgreSQL
+   │         │             │
+frontend   frontend       backend
+            backend
+
+PostgreSQL n'est pas directement connecté au réseau frontend.
+
+21. Un conteneur peut appartenir à plusieurs réseaux
+
+C'est une notion très importante.
+
+Une application peut être connectée à :
+
+frontend
+backend
+
+Par exemple :
+
+docker network create frontend
+docker network create backend
+
+Puis :
+
+docker run -d \
+  --name app \
+  --network frontend \
+  mon-app:v1
+
+Ensuite :
+
+docker network connect backend app
+
+Notre application est maintenant sur deux réseaux :
+
+             frontend
+                │
+                ▼
+             ┌─────┐
+             │ App │
+             └─────┘
+                │
+                ▼
+             backend
+22. Commandes importantes
+Créer un réseau
+docker network create mon-reseau
+Voir les réseaux
+docker network ls
+Inspecter
+docker network inspect mon-reseau
+Supprimer
+docker network rm mon-reseau
+Connecter un conteneur
+docker network connect mon-reseau mon-conteneur
+Déconnecter
+docker network disconnect mon-reseau mon-conteneur
+Lancer directement sur un réseau
+docker run -d \
+  --name mon-nginx \
+  --network mon-reseau \
+  nginx
+23. TP complet — Réseau Docker ⭐⭐⭐
+
+Je te conseille de faire ce TP entièrement.
+
+Étape 1 — Nettoyage
+
+Si tu as encore les conteneurs du cours :
+
+docker rm -f nginx-reseau ubuntu-reseau client-db postgres 2>/dev/null
+
+Puis :
+
+docker network rm mon-reseau backend 2>/dev/null
+
+Ne supprime pas le volume PostgreSQL si tu veux conserver tes données.
+
+Étape 2 — Créer le réseau
+docker network create tp-reseau
+Étape 3 — Créer Nginx
+docker run -d \
+  --name web \
+  --network tp-reseau \
+  nginx
+Étape 4 — Créer Ubuntu
+docker run -dit \
+  --name client \
+  --network tp-reseau \
+  ubuntu:24.04
+Étape 5 — Installer curl
+docker exec -it client bash
+
+Puis :
+
+apt update
+apt install -y curl
+Étape 6 — Tester Nginx
+
+Dans Ubuntu :
+
+curl http://web
+
+Tu dois obtenir :
+
+Welcome to nginx!
+Étape 7 — Tester le DNS
+
+Toujours dans Ubuntu :
+
+getent hosts web
+
+Tu devrais obtenir quelque chose comme :
+
+172.18.0.2    web
+
+Cela montre que Docker résout :
+
+web → adresse IP
+24. Test très important : -p n'est pas nécessaire
+
+Supprime Nginx :
+
+docker rm -f web
+
+Recrée-le :
+
+docker run -d \
+  --name web \
+  --network tp-reseau \
+  nginx
+
+Remarque :
+
+-p 8080:80
+
+n'est pas présent.
+
+Et pourtant :
+
+docker exec -it client curl http://web
+
+fonctionne.
+
+Pourquoi ?
+
+Parce que :
+
+client
+  │
+  │ réseau Docker
+  ▼
+web:80
+
+La communication est interne au réseau Docker.
+
+25. Mais localhost:8080 ?
+
+Sur ton Ubuntu hôte :
+
+curl http://localhost:8080
+
+ne fonctionnera pas dans cet exemple.
+
+Pourquoi ?
+
+Parce que nous n'avons pas publié le port.
+
+Nous avons :
+
+-p 8080:80
+
+❌ absent.
+
+Si nous voulons accéder à Nginx depuis l'hôte :
+
+docker rm -f web
+
+Puis :
+
+docker run -d \
+  --name web \
+  --network tp-reseau \
+  -p 8080:80 \
+  nginx
+
+Maintenant :
+
+curl http://localhost:8080
+
+fonctionne.
+
+26. Résumé visuel
+Sans -p
+             Docker
+┌──────────────────────────┐
+│                          │
+│ client ────────► web     │
+│               :80        │
+│                          │
+└──────────────────────────┘
+
+Ubuntu HOST
+    │
+    X──► web:80 directement
+Avec -p
+Ubuntu HOST
+localhost:8080
+      │
+      ▼
+┌──────────────────────────┐
+│ Docker                   │
+│                          │
+│       web :80            │
+│                          │
+└──────────────────────────┘
+27. Les erreurs classiques à éviter
+❌ Erreur 1
+
+Utiliser :
+
+curl http://localhost:80
+
+depuis un autre conteneur pour atteindre Nginx.
+
+localhost signifie le conteneur actuel.
+
+Donc depuis client :
+
+localhost
+   ↓
+client
+
+et non :
+
+localhost
+   ↓
+web
+
+Il faut :
+
+curl http://web
+❌ Erreur 2
+
+Utiliser l'IP du conteneur partout.
+
+Évite :
+
+curl http://172.18.0.2
+
+Préfère :
+
+curl http://web
+❌ Erreur 3
+
+Croire que EXPOSE publie un port.
+
+Dans un Dockerfile :
+
+EXPOSE 80
+
+ne publie pas le port sur Ubuntu.
+
+Il faut :
+
+-p 8080:80
+❌ Erreur 4
+
+Exposer PostgreSQL inutilement
+
+Évite par exemple :
+
+-p 5432:5432
+
+si seule ton application doit accéder à PostgreSQL.
+
+Une meilleure architecture :
+
+Internet
+   │
+   ▼
+Nginx :80
+   │
+   ▼
+App :3000
+   │
+   ▼
+PostgreSQL :5432
+
+PostgreSQL reste uniquement accessible sur le réseau Docker backend.
+
+28. Commandes à connaître pour un entretien DevOps
+
+Tu dois progressivement mémoriser celles-ci :
+
+docker network ls
+docker network create mon-reseau
+docker network inspect mon-reseau
+docker network connect mon-reseau conteneur
+docker network disconnect mon-reseau conteneur
+docker network rm mon-reseau
+
+Et surtout comprendre :
+
+docker run -d \
+  --name app \
+  --network backend \
+  mon-app:v1
+🧠 Ce qu'il faut absolument retenir
+1. Réseau
+docker network create backend
+
+permet de créer un réseau Docker.
+
+2. Connecter un conteneur
+--network backend
+3. DNS Docker
+
+Sur un réseau Docker personnalisé :
+
+conteneur A → nom du conteneur → conteneur B
+
+Exemple :
+
+curl http://web
+4. -p
+-p 8080:80
+
+sert à rendre le service accessible depuis l'hôte.
+
+5. Communication interne
+app → postgres:5432
+
+ne nécessite pas forcément :
+
+-p 5432:5432
+6. Architecture DevOps
+              Internet
+                 │
+                 ▼
+              Nginx
+                 │
+                 ▼
+                App
+                 │
+                 ▼
+            PostgreSQL
+
+avec :
+
+frontend network
+Nginx ↔ App
+
+backend network
+App ↔ PostgreSQL
+📋 Cheat Sheet — Cours 5
+Commande	Fonction
+docker network ls	Lister les réseaux
+docker network create X	Créer un réseau
+docker network inspect X	Voir les détails
+docker network rm X	Supprimer un réseau
+docker network connect X C	Connecter un conteneur
+docker network disconnect X C	Déconnecter un conteneur
+--network X	Lancer sur un réseau
+-p 8080:80	Publier un port
+curl http://web	Communication via DNS Docker
